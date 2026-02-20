@@ -1,8 +1,50 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AppConfigService } from './core/config/app-config.service';
+import { AppLoggerService } from './core/logger/app-logger.service';
+import { HttpExceptionFilter } from './core/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const appConfigService = app.get(AppConfigService);
+  const logger = app.get(AppLoggerService);
+
+  app.useLogger(logger);
+  logger.setContext('Bootstrap');
+
+  logger.log('Starting application...');
+  logger.log('Following configuration applied:');
+  logger.log(appConfigService.getConfigEntries());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      disableErrorMessages: appConfigService.isProduction,
+      whitelist: true,
+      transform: true,
+    }),
+  );
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  if (appConfigService.isDevelopment) {
+    const config = new DocumentBuilder()
+      .setTitle(appConfigService.appName)
+      .setDescription(`${appConfigService.appName} API`)
+      .setVersion(appConfigService.appVersion)
+      .build();
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(appConfigService.swaggerDocsUri, app, documentFactory);
+  }
+
+  await app.listen(appConfigService.port, () => {
+    logger.log(`Application is running on port ${appConfigService.port}`);
+    if (appConfigService.isDevelopment) {
+      logger.log(
+        `Swagger docs available at: http://localhost:${appConfigService.port}${appConfigService.swaggerDocsUri}`,
+      );
+    }
+    logger.resetContext();
+  });
 }
 bootstrap();
