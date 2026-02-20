@@ -6,7 +6,7 @@ A backend application built with [NestJS](https://nestjs.com/) and TypeScript.
 
 - **Node.js** >= 24 LTS Krypton (see `.nvmrc` — run `nvm use` to switch automatically)
 - **Yarn** (v1 classic)
-- **[nvm](https://github.com/nvm-sh/nvm)** *(optional)* — recommended for managing Node.js versions
+- **[nvm](https://github.com/nvm-sh/nvm)** _(optional)_ — recommended for managing Node.js versions
 
 ## Getting Started
 
@@ -65,10 +65,10 @@ yarn format
 
 The project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to enforce code quality automatically via Git hooks:
 
-| Hook | What runs | Purpose |
-|------|-----------|---------|
+| Hook           | What runs                                               | Purpose                                            |
+| -------------- | ------------------------------------------------------- | -------------------------------------------------- |
 | **pre-commit** | `lint-staged` (ESLint + Prettier on staged `.ts` files) | Ensures all committed code is linted and formatted |
-| **pre-push** | `yarn test` | Ensures all tests pass before code is pushed |
+| **pre-push**   | `yarn test`                                             | Ensures all tests pass before code is pushed       |
 
 #### How it works
 
@@ -87,10 +87,10 @@ The project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](ht
 
 When you open this project in VS Code, you'll be prompted to install the recommended extensions. You can also install them manually:
 
-| Extension | ID | Purpose |
-|-----------|----|---------|
-| **Prettier - Code formatter** | `esbenp.prettier-vscode` | Formats code on save |
-| **ESLint** | `dbaeumer.vscode-eslint` | Highlights and auto-fixes lint errors on save |
+| Extension                     | ID                       | Purpose                                       |
+| ----------------------------- | ------------------------ | --------------------------------------------- |
+| **Prettier - Code formatter** | `esbenp.prettier-vscode` | Formats code on save                          |
+| **ESLint**                    | `dbaeumer.vscode-eslint` | Highlights and auto-fixes lint errors on save |
 
 ### On-Save Behavior
 
@@ -105,35 +105,49 @@ No manual formatting needed — just save and it's done.
 
 Available from the **Run and Debug** panel (`⌘⇧D` / `Ctrl+Shift+D`):
 
-| Configuration | Description |
-|---------------|-------------|
+| Configuration | Description                                   |
+| ------------- | --------------------------------------------- |
 | **Start Dev** | Starts the app in watch mode with live reload |
-| **Test** | Runs the full test suite |
+| **Test**      | Runs the full test suite                      |
 
 ### Tasks
 
 Available from **Terminal → Run Task** (`⌘⇧P` → `Tasks: Run Task`):
 
-| Task | Description |
-|------|-------------|
+| Task       | Description                       |
+| ---------- | --------------------------------- |
 | **Format** | Runs Prettier on all source files |
-| **Lint** | Runs ESLint with auto-fix |
+| **Lint**   | Runs ESLint with auto-fix         |
 
 ## Available Scripts
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `yarn build` | `nest build` | Build the project |
-| `yarn start` | `nest start` | Start the application |
-| `yarn start:dev` | `nest start --watch` | Start in watch mode |
-| `yarn start:debug` | `nest start --debug --watch` | Start in debug mode |
-| `yarn start:prod` | `node dist/main` | Start production build |
-| `yarn lint` | `eslint --fix` | Lint and auto-fix |
-| `yarn format` | `prettier --write` | Format all source files |
-| `yarn test` | `jest` | Run unit tests |
-| `yarn test:watch` | `jest --watch` | Run tests in watch mode |
-| `yarn test:cov` | `jest --coverage` | Run tests with coverage |
-| `yarn test:e2e` | `jest (e2e config)` | Run end-to-end tests |
+| Script             | Command                      | Description             |
+| ------------------ | ---------------------------- | ----------------------- |
+| `yarn build`       | `nest build`                 | Build the project       |
+| `yarn start`       | `nest start`                 | Start the application   |
+| `yarn start:dev`   | `nest start --watch`         | Start in watch mode     |
+| `yarn start:debug` | `nest start --debug --watch` | Start in debug mode     |
+| `yarn start:prod`  | `node dist/main`             | Start production build  |
+| `yarn lint`        | `eslint --fix`               | Lint and auto-fix       |
+| `yarn format`      | `prettier --write`           | Format all source files |
+| `yarn test`        | `jest`                       | Run unit tests          |
+| `yarn test:watch`  | `jest --watch`               | Run tests in watch mode |
+| `yarn test:cov`    | `jest --coverage`            | Run tests with coverage |
+| `yarn test:e2e`    | `jest (e2e config)`          | Run end-to-end tests    |
+
+## Troubleshooting
+
+### Pre-commit / pre-push hooks fail with a wrong Node.js version
+
+Husky's Git hooks run using the **global** `node` binary, not the one activated by `nvm use`. If your global Node.js version doesn't match the project's requirement (v24), the hooks will fail.
+
+**Fix — set nvm's default alias to Node 24:**
+
+```bash
+nvm alias default 24
+```
+
+After setting the alias, **restart VS Code** (or reload the window) so that the integrated terminal picks up the updated default. The hooks will now use the correct Node.js version.
 
 ## License
 
