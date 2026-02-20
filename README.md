@@ -1,6 +1,23 @@
 # Inventory Management System
 
-A backend application built with [NestJS](https://nestjs.com/) and TypeScript.
+A backend application for an Inventory Management System, utilizing CQRS and MongoDB transactions.
+
+## ADR: Framework Choice
+
+**Context:** The requirements state: "Use Node.js and Express.js to build the API".
+**Decision:** We chose **NestJS**.
+**Justification:** NestJS uses Express.js under the hood. It perfectly fits our needs for CQRS and a solid, enterprise-like architecture. It has a ready-to-use `@nestjs/cqrs` module. Building a custom CQRS system on pure Express.js takes too much time. NestJS gives us a production-tested solution while still relying on the Express.js ecosystem.
+
+## ADR: MongoDB Transactions vs. Sagas
+
+**Context:** When a user buys a product, we must do two things at once: deduct stock and create an order. Both must succeed together, or both must fail.
+**Decision:** We use **MongoDB Multi-Document Transactions** instead of the Saga pattern. We run a single-node Replica Set in Docker to allow this locally.
+**Justification:** Sagas (saving an order, sending an event, and writing rollback code if stock is empty) are complex and cause temporary data inconsistencies. Instead, MongoDB ACID transactions offer:
+
+1. **Simplicity:** We don't need extra tools like RabbitMQ or tricky rollback code.
+2. **Strong Consistency:** Either everything saves, or nothing does.
+   _Note:_ MongoDB requires a Replica Set for transactions to work. We set up a 1-node replica set in Docker to support transactions locally.
+   **Cloud Availability:** This setup works perfectly with managed cloud databases (MongoDB Atlas, AWS DocumentDB, Azure Cosmos DB), as they all support these transactions out of the box.
 
 ## Prerequisites
 
@@ -134,6 +151,65 @@ Available from **Terminal → Run Task** (`⌘⇧P` → `Tasks: Run Task`):
 | `yarn test:watch`  | `jest --watch`               | Run tests in watch mode |
 | `yarn test:cov`    | `jest --coverage`            | Run tests with coverage |
 | `yarn test:e2e`    | `jest (e2e config)`          | Run end-to-end tests    |
+
+## Configuration Management
+
+For maintainability and troubleshooting, **no environment variables should be accessed directly via `process.env` or NestJS `ConfigService`** throughout the codebase.
+
+Instead, any configuration variable should be accessed **only** via the `AppConfigService` (`src/core/config/app-config.service.ts`).
+
+### Environment Validation
+
+Every new environment variable must be validated ensuring application safety on startup. We use the `EnvironmentVariables` class (`src/core/config/env.validation.ts`) in conjunction with `class-validator` and `class-transformer` for this purpose.
+
+To add a new variable, define it in the `EnvironmentVariables` class with appropriate validation decorators:
+
+```typescript
+// src/core/config/env.validation.ts
+import { IsString, IsNotEmpty } from 'class-validator';
+
+class EnvironmentVariables {
+  // ... existing variables
+
+  @IsString()
+  @IsNotEmpty()
+  API_KEY: string;
+}
+```
+
+### Configuration Logging & Sensitive Data
+
+The application prints the applied configuration on startup. Any sensitive data (such as passwords, secrets, or API keys) must be obfuscated in the logs.
+
+To add and obfuscate a new sensitive configuration variable, use the `sensitive: true` flag in the `getConfigEntries` method of `AppConfigService`:
+
+```typescript
+// src/core/config/app-config.service.ts
+export class AppConfigService {
+  // ...
+  get apiKey(): string {
+    return this.configService.get<string>('API_KEY')!;
+  }
+
+  getConfigEntries(): Record<string, string | number> {
+    const entries: {
+      key: string;
+      value: string | number;
+      sensitive?: boolean;
+    }[] = [
+      // ... existing entries
+      { key: 'API_KEY', value: this.apiKey, sensitive: true },
+    ];
+
+    return Object.fromEntries(
+      entries.map(({ key, value, sensitive }) => [
+        key,
+        sensitive ? this.obfuscate(String(value)) : value,
+      ]),
+    );
+  }
+}
+```
 
 ## Troubleshooting
 

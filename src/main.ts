@@ -2,9 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { AppConfigService } from './core/config/app-config.service';
-import { AppLoggerService } from './core/logger/app-logger.service';
-import { HttpExceptionFilter } from './core/filters/http-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AppConfigService } from './common/config/app-config.service';
+import { AppLoggerService } from './common/logger/app-logger.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });

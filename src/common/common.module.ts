@@ -13,4 +13,4 @@ import { validate } from './config/env.validation';
   providers: [AppConfigService, AppLoggerService],
   exports: [AppConfigService, AppLoggerService],
 })
-export class CoreModule {}
+export class CommonModule {}
