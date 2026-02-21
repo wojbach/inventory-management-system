@@ -162,22 +162,22 @@ To satisfy this, we use `helmet` with custom configurations intentionally optimi
 - **`crossOriginOpenerPolicy: 'same-origin'`**: Protects the API execution context by isolating it if opened via popups (`window.open`).
 - **`contentSecurityPolicy: false`**: CSP is disabled since this backend only returns JSON data, not HTML/User Interfaces.
 - **`frameguard: { action: 'deny' }`**: Explicitly blocks Clickjacking (nobody can embed this API inside an `<iframe>`).
-- **CORS (`app.enableCors()`)**: Required so that the external frontend preflight requests (`OPTIONS`) pass successfully. The specific `origin` needs to be defined dynamically via environments per deployment.
+- **CORS (`app.enableCors()`)**: Required so that the external frontend preflight requests (`OPTIONS`) pass successfully. The specific `origin` needs to be defined dynamically via the `CORS_ORIGIN` environment variable (which accepts a wildcard `*` or a comma-separated list of valid web URLs).
 
 ## Configuration Management
 
 For maintainability and troubleshooting, **no environment variables should be accessed directly via `process.env` or NestJS `ConfigService`** throughout the codebase.
 
-Instead, any configuration variable should be accessed **only** via the `AppConfigService` (`src/core/config/app-config.service.ts`).
+Instead, any configuration variable should be accessed **only** via the `AppConfigService` (`src/common/config/app-config.service.ts`).
 
 ### Environment Validation
 
-Every new environment variable must be validated ensuring application safety on startup. We use the `EnvironmentVariables` class (`src/core/config/env.validation.ts`) in conjunction with `class-validator` and `class-transformer` for this purpose.
+Every new environment variable must be validated ensuring application safety on startup. We use the `EnvironmentVariables` class (`src/common/config/environement-variables.model.ts`) in conjunction with `class-validator` and `class-transformer` for this purpose.
 
 To add a new variable, define it in the `EnvironmentVariables` class with appropriate validation decorators:
 
 ```typescript
-// src/core/config/env.validation.ts
+// src/common/config/environement-variables.model.ts
 import { IsString, IsNotEmpty } from 'class-validator';
 
 class EnvironmentVariables {
@@ -196,7 +196,7 @@ The application prints the applied configuration on startup. Any sensitive data 
 To add and obfuscate a new sensitive configuration variable, use the `sensitive: true` flag in the `getConfigEntries` method of `AppConfigService`:
 
 ```typescript
-// src/core/config/app-config.service.ts
+// src/common/config/app-config.service.ts
 export class AppConfigService {
   // ...
   get apiKey(): string {
