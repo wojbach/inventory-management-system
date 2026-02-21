@@ -38,10 +38,7 @@ export class AppConfigService {
   }
 
   get logLevel(): string {
-    return (
-      this.configService.get<LogLevel>('LOG_LEVEL') ??
-      LOG_LEVELS[LOG_LEVELS.lastIndexOf('log')]
-    );
+    return this.configService.get<LogLevel>('LOG_LEVEL') ?? LOG_LEVELS[LOG_LEVELS.lastIndexOf('log')];
   }
 
   get swaggerDocsUri(): string {
@@ -69,12 +66,7 @@ export class AppConfigService {
       { key: 'CORS_ORIGIN', value: this.corsOrigin },
     ];
 
-    return Object.fromEntries(
-      entries.map(({ key, value, sensitive }) => [
-        key,
-        sensitive ? this.obfuscate(String(value)) : value,
-      ]),
-    );
+    return Object.fromEntries(entries.map(({ key, value, sensitive }) => [key, sensitive ? this.obfuscate(String(value)) : value]));
   }
 
   getSummary(): string {

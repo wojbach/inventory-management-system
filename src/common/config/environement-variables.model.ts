@@ -1,19 +1,5 @@
 import { LOG_LEVELS, LogLevel } from '@nestjs/common';
-import {
-  IsString,
-  IsNotEmpty,
-  MaxLength,
-  IsEnum,
-  IsNumber,
-  Min,
-  Max,
-  IsOptional,
-  IsIn,
-  Matches,
-  Validate,
-  isURL,
-  IsUrl,
-} from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsEnum, IsNumber, Min, Max, IsOptional, IsIn, Matches, Validate, isURL, IsUrl } from 'class-validator';
 import { Environment } from '../logger/environment.enum';
 import { LogFormat } from '../logger/log-format.enum';
 
@@ -67,8 +53,7 @@ export class EnvironmentVariables {
       return origins.every((origin) => isURL(origin, { require_tld: false }));
     },
     {
-      message:
-        'CORS_ORIGIN must be a wildcard (*) or a valid HTTP/HTTPS URL (or comma-separated URLs).',
+      message: 'CORS_ORIGIN must be a wildcard (*) or a valid HTTP/HTTPS URL (or comma-separated URLs).',
     },
   )
   @IsString()

@@ -19,6 +19,12 @@ A backend application for an Inventory Management System, utilizing CQRS and Mon
    _Note:_ MongoDB requires a Replica Set for transactions to work. We set up a 1-node replica set in Docker to support transactions locally.
    **Cloud Availability:** This setup works perfectly with managed cloud databases (MongoDB Atlas, AWS DocumentDB, Azure Cosmos DB), as they all support these transactions out of the box.
 
+## ADR: Floating Point Precision for Money
+
+**Context:** Prices and money require exact calculations (for example, applying percentage discounts or region multipliers). JavaScript uses floating-point numbers by default. This means that a simple calculation like `0.1 + 0.2` gives `0.30000000000000004` instead of exactly `0.3`. If we do not fix this, our financial calculations will be wrong.
+**Decision:** We use the [**big.js**](https://github.com/MikeMcl/big.js) library. We hide all money-related math inside our services using this library. The library makes sure the math is perfectly accurate before we round the final result and return it as a regular number.
+**Justification:** Writing our own logic to fix floating-point math errors is hard and risky. The `big.js` package is a small and proven library that handles decimal math perfectly. It completely removes the risk of returning incorrect prices from our API.
+
 ## Prerequisites
 
 - **Node.js** >= 24 LTS Krypton (see `.nvmrc` — run `nvm use` to switch automatically)

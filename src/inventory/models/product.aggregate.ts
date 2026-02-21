@@ -3,6 +3,7 @@ import { ProductCreatedEvent } from '../events/impl/product-created.event';
 import { ProductRestockedEvent } from '../events/impl/product-restocked.event';
 import { ProductSoldEvent } from '../events/impl/product-sold.event';
 import { InsufficientStockException } from '../../common/exceptions/insufficient-stock.exception';
+import { ProductCategory } from '../enums/product-category.enum';
 
 export class Product extends AggregateRoot {
   constructor(
@@ -11,22 +12,17 @@ export class Product extends AggregateRoot {
     public description: string,
     public price: number,
     public stock: number,
+    public category: ProductCategory,
   ) {
     super();
   }
 
-  static create(
-    id: string,
-    name: string,
-    description: string,
-    price: number,
-    stock: number,
-  ): Product {
+  static create(id: string, name: string, description: string, price: number, stock: number, category: ProductCategory): Product {
     if (price <= 0) throw new Error('Price must be positive');
     if (price > 1_000_000) throw new Error('Price cannot exceed 1,000,000');
     if (stock > 1_000_000) throw new Error('Stock cannot exceed 1,000,000');
-    const product = new Product(id, name, description, price, stock);
-    product.apply(new ProductCreatedEvent(id, name, description, price, stock));
+    const product = new Product(id, name, description, price, stock, category);
+    product.apply(new ProductCreatedEvent(id, name, description, price, stock, category));
     return product;
   }
 

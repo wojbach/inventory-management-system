@@ -1,12 +1,6 @@
-import {
-  IsString,
-  MaxLength,
-  IsPositive,
-  IsNumber,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsString, MaxLength, IsPositive, IsNumber, Min, Max, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ProductCategory } from '../enums/product-category.enum';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Wireless Mouse', description: 'Product name' })
@@ -33,4 +27,12 @@ export class CreateProductDto {
   @Min(0)
   @Max(1_000_000)
   stock: number;
+
+  @ApiProperty({
+    enum: ProductCategory,
+    example: ProductCategory.ELECTRONICS,
+    description: 'Product category',
+  })
+  @IsEnum(ProductCategory)
+  category: ProductCategory;
 }

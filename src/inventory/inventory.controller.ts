@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  HttpCode,
-  HttpStatus,
-  Query,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, HttpCode, HttpStatus, Query, ParseUUIDPipe } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CreateProductDto } from './dto/create-product.dto';
 import { RestockProductDto } from './dto/restock-product.dto';
@@ -29,38 +19,28 @@ export class InventoryController {
 
   @Get()
   async getProducts(@Query() queryParams: PaginationDto) {
-    return this.queryBus.execute(
-      new GetProductsQuery(queryParams.page, queryParams.limit),
-    );
+    return this.queryBus.execute(new GetProductsQuery(queryParams.page, queryParams.limit));
   }
 
   @Post()
   @ApiBody({ type: CreateProductDto })
   @HttpCode(HttpStatus.CREATED)
   async createProduct(@Body() dto: CreateProductDto) {
-    const id = await this.commandBus.execute(
-      new CreateProductCommand(dto.name, dto.description, dto.price, dto.stock),
-    );
+    const id = await this.commandBus.execute(new CreateProductCommand(dto.name, dto.description, dto.price, dto.stock, dto.category));
     return { id };
   }
 
   @Post(':id/restock')
   @ApiBody({ type: RestockProductDto })
   @HttpCode(HttpStatus.OK)
-  async restockProduct(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RestockProductDto,
-  ) {
+  async restockProduct(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RestockProductDto) {
     await this.commandBus.execute(new RestockProductCommand(id, dto.amount));
   }
 
   @Post(':id/sell')
   @ApiBody({ type: SellProductDto })
   @HttpCode(HttpStatus.OK)
-  async sellProduct(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SellProductDto,
-  ) {
+  async sellProduct(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SellProductDto) {
     await this.commandBus.execute(new SellProductCommand(id, dto.amount));
   }
 }

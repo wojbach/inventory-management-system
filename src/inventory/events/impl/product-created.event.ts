@@ -1,3 +1,5 @@
+import { ProductCategory } from '../../enums/product-category.enum';
+
 export class ProductCreatedEvent {
   constructor(
     public readonly id: string,
@@ -5,5 +7,6 @@ export class ProductCreatedEvent {
     public readonly description: string,
     public readonly price: number,
     public readonly stock: number,
+    public readonly category: ProductCategory,
   ) {}
 }

@@ -19,10 +19,7 @@ export class DatabaseService implements OnApplicationBootstrap {
 
       this.logger.log('Database connection successful!');
     } catch (error) {
-      this.logger.error(
-        'Failed to connect to the database',
-        error instanceof Error ? error.stack : String(error),
-      );
+      this.logger.error('Failed to connect to the database', error instanceof Error ? error.stack : String(error));
       process.exit(1);
     }
   }

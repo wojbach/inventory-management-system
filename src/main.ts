@@ -59,9 +59,7 @@ async function bootstrap() {
   await app.listen(appConfigService.port, () => {
     logger.log(`Application is running on port ${appConfigService.port}`);
     if (appConfigService.isDevelopment) {
-      logger.log(
-        `Swagger docs available at: http://localhost:${appConfigService.port}${appConfigService.swaggerDocsUri}`,
-      );
+      logger.log(`Swagger docs available at: http://localhost:${appConfigService.port}${appConfigService.swaggerDocsUri}`);
     }
     logger.resetContext();
   });

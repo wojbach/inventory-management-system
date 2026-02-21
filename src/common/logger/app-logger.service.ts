@@ -20,14 +20,7 @@ export class AppLoggerService extends ConsoleLogger {
     timestampDiff: string,
   ): string {
     if (!this.useJson) {
-      return super.formatMessage(
-        logLevel,
-        message,
-        pidMessage,
-        formattedLogLevel,
-        contextMessage,
-        timestampDiff,
-      );
+      return super.formatMessage(logLevel, message, pidMessage, formattedLogLevel, contextMessage, timestampDiff);
     }
 
     let entry: Record<string, unknown>;
@@ -56,14 +49,7 @@ export class AppLoggerService extends ConsoleLogger {
   }
 
   private getLogLevels(level: string): LogLevel[] {
-    const levels: LogLevel[] = [
-      'fatal',
-      'error',
-      'warn',
-      'log',
-      'debug',
-      'verbose',
-    ];
+    const levels: LogLevel[] = ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'];
     const index = levels.indexOf(level as LogLevel);
     return index === -1 ? ['log', 'error', 'warn'] : levels.slice(0, index + 1);
   }

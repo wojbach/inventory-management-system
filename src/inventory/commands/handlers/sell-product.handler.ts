@@ -1,10 +1,7 @@
 import { Inject } from '@nestjs/common';
 import { CommandHandler, EventPublisher, ICommandHandler } from '@nestjs/cqrs';
 import { SellProductCommand } from '../impl/sell-product.command';
-import {
-  IProductRepository,
-  PRODUCT_REPOSITORY_TOKEN,
-} from '../../repositories/product-repository.interface';
+import { IProductRepository, PRODUCT_REPOSITORY_TOKEN } from '../../repositories/product-repository.interface';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 
@@ -24,16 +21,10 @@ export class SellProductHandler implements ICommandHandler<SellProductCommand> {
     session.startTransaction();
 
     try {
-      const product = this.publisher.mergeObjectContext(
-        await this.productRepository.findById(id),
-      );
+      const product = this.publisher.mergeObjectContext(await this.productRepository.findById(id));
 
       product.sell(amount);
-      await this.productRepository.updateStock(
-        product.id,
-        product.stock,
-        session,
-      );
+      await this.productRepository.updateStock(product.id, product.stock, session);
 
       await session.commitTransaction();
       product.commit();

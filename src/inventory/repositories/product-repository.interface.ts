@@ -1,22 +1,16 @@
 import { Product } from '../models/product.aggregate';
 import { ProductResponseDto } from '../dto/product-response.dto';
 
+import { PaginatedResponse } from '../../common/dto/paginated-response.dto';
+
 export const PRODUCT_REPOSITORY_TOKEN = Symbol('ProductRepository');
 
-export interface IProductRepository {
+export interface IProductRepository<TTransactionalSession = unknown> {
   findById(id: string): Promise<Product>;
 
-  findAll(
-    page: number,
-    limit: number,
-  ): Promise<{
-    data: ProductResponseDto[];
-    total: number;
-    page: number;
-    limit: number;
-  }>;
+  findAll(page: number, limit: number): Promise<PaginatedResponse<ProductResponseDto>>;
 
-  create(product: Product, session?: unknown): Promise<void>;
+  create(product: Product, transaction?: TTransactionalSession): Promise<void>;
 
-  updateStock(id: string, newStock: number, session?: unknown): Promise<void>;
+  updateStock(id: string, newStock: number, transaction?: TTransactionalSession): Promise<void>;
 }
