@@ -13,6 +13,10 @@ export class AppConfigService {
     return this.configService.get<string>('APP_VERSION')!;
   }
 
+  get mongoUri(): string {
+    return this.configService.get<string>('MONGO_URI')!;
+  }
+
   get port(): number {
     return this.configService.get<number>('PORT') ?? 3000;
   }
@@ -52,6 +56,7 @@ export class AppConfigService {
     }[] = [
       { key: 'APP_NAME', value: this.appName },
       { key: 'APP_VERSION', value: this.appVersion },
+      { key: 'MONGO_URI', value: this.mongoUri, sensitive: true },
       { key: 'NODE_ENV', value: this.nodeEnv },
       { key: 'PORT', value: this.port },
       { key: 'LOG_FORMAT', value: this.logFormat },

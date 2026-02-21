@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
 import { AppConfigService } from './common/config/app-config.service';
 import { AppLoggerService } from './common/logger/app-logger.service';
 
@@ -25,7 +26,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(), new DomainExceptionFilter());
 
   if (appConfigService.isDevelopment) {
     const config = new DocumentBuilder()
