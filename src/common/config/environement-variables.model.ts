@@ -3,7 +3,6 @@ import {
   IsString,
   IsNotEmpty,
   MaxLength,
-  IsUrl,
   IsEnum,
   IsNumber,
   Min,
@@ -11,6 +10,9 @@ import {
   IsOptional,
   IsIn,
   Matches,
+  Validate,
+  isURL,
+  IsUrl,
 } from 'class-validator';
 import { Environment } from '../logger/environment.enum';
 import { LogFormat } from '../logger/log-format.enum';
@@ -56,4 +58,20 @@ export class EnvironmentVariables {
     message: 'SWAGGER_DOCS_URI must be a valid URL path (e.g. /api-docs)',
   })
   SWAGGER_DOCS_URI: string = '/api';
+
+  @Validate(
+    (value: unknown) => {
+      if (typeof value !== 'string') return false;
+      if (value === '*') return true;
+      const origins = value.split(',').map((v) => v.trim());
+      return origins.every((origin) => isURL(origin, { require_tld: false }));
+    },
+    {
+      message:
+        'CORS_ORIGIN must be a wildcard (*) or a valid HTTP/HTTPS URL (or comma-separated URLs).',
+    },
+  )
+  @IsString()
+  @IsNotEmpty()
+  CORS_ORIGIN: string;
 }

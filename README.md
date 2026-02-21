@@ -152,6 +152,18 @@ Available from **Terminal → Run Task** (`⌘⇧P` → `Tasks: Run Task`):
 | `yarn test:cov`    | `jest --coverage`            | Run tests with coverage |
 | `yarn test:e2e`    | `jest (e2e config)`          | Run end-to-end tests    |
 
+## Security (Helmet & CORS)
+
+This API is designed to operate in a cloud environment where external frontends (e.g., `admin.domain.com`) communicate with it.
+
+To satisfy this, we use `helmet` with custom configurations intentionally optimized for APIs rather than HTML frontends:
+
+- **`crossOriginResourcePolicy: 'cross-origin'`**: Allows external trusted frontends to process the JSON payloads returned by this API.
+- **`crossOriginOpenerPolicy: 'same-origin'`**: Protects the API execution context by isolating it if opened via popups (`window.open`).
+- **`contentSecurityPolicy: false`**: CSP is disabled since this backend only returns JSON data, not HTML/User Interfaces.
+- **`frameguard: { action: 'deny' }`**: Explicitly blocks Clickjacking (nobody can embed this API inside an `<iframe>`).
+- **CORS (`app.enableCors()`)**: Required so that the external frontend preflight requests (`OPTIONS`) pass successfully. The specific `origin` needs to be defined dynamically via environments per deployment.
+
 ## Configuration Management
 
 For maintainability and troubleshooting, **no environment variables should be accessed directly via `process.env` or NestJS `ConfigService`** throughout the codebase.

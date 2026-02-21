@@ -48,6 +48,10 @@ export class AppConfigService {
     return this.configService.get<string>('SWAGGER_DOCS_URI') ?? '/api';
   }
 
+  get corsOrigin(): string {
+    return this.configService.get<string>('CORS_ORIGIN')!;
+  }
+
   getConfigEntries(): Record<string, string | number> {
     const entries: {
       key: string;
@@ -62,6 +66,7 @@ export class AppConfigService {
       { key: 'LOG_FORMAT', value: this.logFormat },
       { key: 'LOG_LEVEL', value: this.logLevel },
       { key: 'SWAGGER_DOCS_URI', value: this.swaggerDocsUri },
+      { key: 'CORS_ORIGIN', value: this.corsOrigin },
     ];
 
     return Object.fromEntries(

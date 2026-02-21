@@ -6,6 +6,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
 import { AppConfigService } from './common/config/app-config.service';
 import { AppLoggerService } from './common/logger/app-logger.service';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -13,6 +14,23 @@ async function bootstrap() {
   const logger = app.get(AppLoggerService);
 
   app.useLogger(logger);
+  app.use(
+    helmet({
+      hidePoweredBy: true,
+      dnsPrefetchControl: { allow: true },
+      frameguard: { action: 'deny' },
+      ieNoOpen: true,
+      noSniff: true,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+      contentSecurityPolicy: false,
+      xssFilter: false,
+    }),
+  );
+
+  app.enableCors({
+    origin: appConfigService.corsOrigin,
+  });
   logger.setContext('Bootstrap');
 
   logger.log('Starting application...');
