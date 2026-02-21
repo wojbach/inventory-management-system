@@ -14,6 +14,11 @@ import { DISCOUNT_STRATEGIES_TOKEN } from './services/strategies/discount-strate
 import { VolumeDiscountStrategy } from './services/strategies/impl/volume-discount.strategy';
 import { BlackFridayDiscountStrategy } from './services/strategies/impl/black-friday-discount.strategy';
 import { HolidayDiscountStrategy } from './services/strategies/impl/holiday-discount.strategy';
+import { OrderEventsHandler } from './events/handlers/order-events.handler';
+
+const CommandHandlers = [CreateOrderHandler];
+const QueryHandlers = [GetOrdersHandler];
+const EventHandlers = [OrderEventsHandler];
 
 @Module({
   imports: [CqrsModule, InventoryModule, ConsumersModule, MongooseModule.forFeature([{ name: OrderDocument.name, schema: OrderSchema }])],
@@ -36,8 +41,9 @@ import { HolidayDiscountStrategy } from './services/strategies/impl/holiday-disc
       provide: ORDER_REPOSITORY_TOKEN,
       useClass: MongoOrderRepository,
     },
-    CreateOrderHandler,
-    GetOrdersHandler,
+    ...CommandHandlers,
+    ...QueryHandlers,
+    ...EventHandlers,
   ],
 })
 export class OrdersModule {}

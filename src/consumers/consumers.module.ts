@@ -9,6 +9,10 @@ import { CONSUMER_REPOSITORY_TOKEN, IConsumerRepository } from './repositories/c
 import { GetConsumersHandler } from './queries/handlers/get-consumers.handler';
 import { CustomerLocation } from '../orders/enums/customer-location.enum';
 
+const CommandHandlers = [];
+const QueryHandlers = [GetConsumersHandler];
+const EventHandlers = [];
+
 @Module({
   imports: [CqrsModule, MongooseModule.forFeature([{ name: ConsumerDocument.name, schema: ConsumerSchema }])],
   controllers: [ConsumersController],
@@ -17,7 +21,9 @@ import { CustomerLocation } from '../orders/enums/customer-location.enum';
       provide: CONSUMER_REPOSITORY_TOKEN,
       useClass: MongoConsumerRepository,
     },
-    GetConsumersHandler,
+    ...CommandHandlers,
+    ...QueryHandlers,
+    ...EventHandlers,
   ],
   exports: [CONSUMER_REPOSITORY_TOKEN],
 })
