@@ -63,7 +63,7 @@ export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
 
       for (const { product, quantity } of productsToSell) {
         product.sell(quantity);
-        await this.productRepository.updateStock(product.id, product.stock, session);
+        await this.productRepository.updateStock(product.id, -quantity, session);
       }
 
       const orderId = crypto.randomUUID();

@@ -12,5 +12,5 @@ export interface IProductRepository<TTransactionalSession = unknown> {
 
   create(product: Product, transaction?: TTransactionalSession): Promise<void>;
 
-  updateStock(id: string, newStock: number, transaction?: TTransactionalSession): Promise<void>;
+  updateStock(id: string, quantityChange: number, transaction?: TTransactionalSession): Promise<void>;
 }

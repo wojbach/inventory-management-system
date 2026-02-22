@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, ClientSession } from 'mongoose';
+import { Model, ClientSession, QueryFilter } from 'mongoose';
 import { ProductDocument } from './product.schema';
 import { Product } from '../../models/product.aggregate';
 import { ProductNotFoundException } from '../../../common/exceptions/product-not-found.exception';
@@ -58,7 +58,17 @@ export class MongoProductRepository implements IProductRepository<ClientSession>
     );
   }
 
-  async updateStock(id: string, newStock: number, transaction?: ClientSession): Promise<void> {
-    await this.model.updateOne({ _id: id }, { stock: newStock }, { session: transaction });
+  async updateStock(id: string, quantityChange: number, transaction?: ClientSession): Promise<void> {
+    const filter: QueryFilter<ProductDocument> = { _id: id };
+    if (quantityChange < 0) {
+      filter.stock = { $gte: Math.abs(quantityChange) };
+    }
+    const result = await this.model.updateOne(filter, { $inc: { stock: quantityChange } }, { session: transaction });
+    if (result.matchedCount === 0) {
+      if (quantityChange < 0) {
+        throw new Error('Concurrent order update detected, insufficient stock or product not found.');
+      }
+      throw new ProductNotFoundException(id);
+    }
   }
 }

@@ -24,7 +24,7 @@ export class RestockProductHandler implements ICommandHandler<RestockProductComm
       const product = this.publisher.mergeObjectContext(await this.productRepository.findById(id));
 
       product.restock(amount);
-      await this.productRepository.updateStock(product.id, product.stock, session);
+      await this.productRepository.updateStock(product.id, amount, session);
 
       await session.commitTransaction();
       product.commit();

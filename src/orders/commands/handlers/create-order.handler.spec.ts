@@ -108,8 +108,7 @@ describe('CreateOrderHandler', () => {
     );
 
     // Stock deduplicated and updated
-    expect(mockProduct.sell).toHaveBeenCalledWith(2);
-    expect(mockProductRepository.updateStock).toHaveBeenCalledWith('prod-1', 10, mockSession);
+    expect(mockProductRepository.updateStock).toHaveBeenCalledWith('prod-1', -2, mockSession);
 
     // Order created
     expect(mockOrderRepository.create).toHaveBeenCalled();

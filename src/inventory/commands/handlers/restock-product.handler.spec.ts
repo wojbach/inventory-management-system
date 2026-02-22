@@ -73,7 +73,7 @@ describe('RestockProductHandler', () => {
     expect(mockEventPublisher.mergeObjectContext).toHaveBeenCalledWith(mockProduct);
 
     expect(mockProduct.restock).toHaveBeenCalledWith(10);
-    expect(mockProductRepository.updateStock).toHaveBeenCalledWith(mockProduct.id, mockProduct.stock, mockSession);
+    expect(mockProductRepository.updateStock).toHaveBeenCalledWith(mockProduct.id, 10, mockSession);
 
     expect(mockSession.commitTransaction).toHaveBeenCalled();
     expect(mockProduct.commit).toHaveBeenCalled();
