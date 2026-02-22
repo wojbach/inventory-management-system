@@ -13,25 +13,15 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [24.x]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Build Docker 'builder' stage
+        run: docker build --target builder -t inventory-management-system-builder:${{ github.sha }} .
 
       - name: Run unit tests
-        run: yarn test
+        run: docker run --rm inventory-management-system-builder:${{ github.sha }} yarn test
 
   docker-build-and-integration:
     name: Code Quality, Integration & Docker Build
