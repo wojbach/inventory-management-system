@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
 
-describe('InventoryController (e2e)', () => {
+describe('InventoryController (integration)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -49,7 +49,7 @@ describe('InventoryController (e2e)', () => {
   });
 
   it('/products (GET) - should return products list with updated stock', async () => {
-    const res = await request(app.getHttpServer()).get('/products').expect(200);
+    const res = await request(app.getHttpServer()).get('/products?limit=100').expect(200);
 
     expect(Array.isArray(res.body.data)).toBeTruthy();
     const product = res.body.data.find((p) => p.id === createdProductId);

@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, ConflictException } from '@nestjs/common';
 import { CommandHandler, EventPublisher, ICommandHandler } from '@nestjs/cqrs';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, ClientSession } from 'mongoose';
@@ -92,6 +92,9 @@ export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
       return orderId;
     } catch (error) {
       await session.abortTransaction();
+      if (error?.code === 112 || error?.hasErrorLabel?.('TransientTransactionError')) {
+        throw new ConflictException('Concurrent order update detected, please try again.');
+      }
       throw error;
     } finally {
       session.endSession();

@@ -1,0 +1,58 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run unit tests
+        run: yarn test
+
+  docker-build-and-integration:
+    name: Code Quality, Integration & Docker Build
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: |
+      github.ref == 'refs/heads/main' || 
+      github.base_ref == 'main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker 'builder' stage
+        run: docker build --target builder -t inventory-management-system-builder:${{ github.sha }} .
+
+      - name: Code quality check (Lint & Format)
+        run: docker run --rm inventory-management-system-builder:${{ github.sha }} sh -c "yarn lint && yarn format"
+
+      - name: Run integration tests inside Docker
+        run: docker run --rm inventory-management-system-builder:${{ github.sha }} yarn test:int
+
+      - name: Build final production Docker image
+        run: docker build -t inventory-management-system:${{ github.sha }} .

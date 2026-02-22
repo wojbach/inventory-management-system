@@ -25,10 +25,17 @@ A backend application for an Inventory Management System, utilizing CQRS and Mon
 **Decision:** We use the [**big.js**](https://github.com/MikeMcl/big.js) library. We hide all money-related math inside our services using this library. The library makes sure the math is perfectly accurate before we round the final result and return it as a regular number.
 **Justification:** Writing our own logic to fix floating-point math errors is hard and risky. The `big.js` package is a small and proven library that handles decimal math perfectly. It completely removes the risk of returning incorrect prices from our API.
 
+## ADR: Integration Testing Database
+
+**Context:** We need a real MongoDB database to run Integration Tests. This allows us to test real queries, Mongoose validations, and transactions correctly, without the need to mock our database code.
+**Decision:** We chose to use the **mongodb-memory-server** package instead of **[Testcontainers](https://testcontainers.com/)**. It automatically starts a temporary, in-memory database right inside our Node.js tests.
+**Justification:** [Testcontainers](https://testcontainers.com/) is an amazing tool for managing real databases in Docker, but it is too complex for this stage of the project. It requires Docker to be running on your computer, which makes local testing slower and complicates the CI (Continuous Integration) setup. On the other hand, `mongodb-memory-server` is much simpler right now: it downloads the MongoDB engine and runs it directly in the computer's memory in less than a second. It gives us all the benefits of a real database, but keeps our tests very fast and does not require Docker.
+
 ## Prerequisites
 
 - **Node.js** >= 24 LTS Krypton (see `.nvmrc` — run `nvm use` to switch automatically)
 - **Yarn** (v1 classic)
+- **Docker** — required to run the local MongoDB replica set
 - **[nvm](https://github.com/nvm-sh/nvm)** _(optional)_ — recommended for managing Node.js versions
 
 ## Getting Started
@@ -41,20 +48,36 @@ yarn install
 
 This will also automatically set up Git hooks via Husky (see [Git Hooks](#git-hooks) below).
 
-### 2. Run the application
+### 2. Configure Environment Variables
+
+Before running the application, you need to set up your environment variables. Copy the provided sample template:
+
+```bash
+cp .env.example .env
+```
+
+You can then edit `.env` if you need to change any default settings.
+
+### 3. Run the application
+
+First, you need to start the MongoDB database. The project includes a `docker-compose.yml` file that creates a single-node MongoDB Replica Set (required for testing transactions locally) and a Mongo Express dashboard.
+
+```bash
+# Start the database in the background
+docker compose up -d
+```
+
+Once the database is running, you can start the NestJS application:
 
 ```bash
 # Development (watch mode — auto-restarts on file changes)
 yarn start:dev
-
-# Production
-yarn build
-yarn start:prod
 ```
 
 The application will start on `http://localhost:3000` by default.
+You can view your database via the Mongo Express dashboard at `http://localhost:8081` (Login: `admin` / Password: `pass`).
 
-### 3. Run tests
+### 4. Run tests
 
 ```bash
 # Unit tests
@@ -66,8 +89,29 @@ yarn test:watch
 # Coverage report
 yarn test:cov
 
-# E2E tests
-yarn test:e2e
+# Integration tests
+yarn test:int
+```
+
+### 5. Docker & CI
+
+The application includes a multi-stage `Dockerfile`. For Continuous Integration (CI), you can build the intermediate `builder` stage and run your test suite inside it before continuing to build the lean production image.
+
+**GitHub Actions:**
+We have an automated pipeline (`.github/workflows/ci.yml`) set up that uses this exact Docker-in-Docker pattern. Whenever code is pushed to the `main` branch, the pipeline will build the `builder` image, run formatters, linters, and all integration tests completely isolated inside that container, and finally output the production-ready image upon success.
+
+You can simulate exactly what CI does on your local machine:
+
+```bash
+# 1. Build only the builder stage for testing
+docker build --target builder -t inventory-management-system-builder .
+
+# 2. Run tests in the builder environment
+docker run --rm inventory-management-system-builder yarn test
+docker run --rm inventory-management-system-builder yarn test:int
+
+# 3. If tests pass, build the final production image
+docker build -t inventory-management-system .
 ```
 
 ## Code Quality
@@ -88,10 +132,10 @@ yarn format
 
 The project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to enforce code quality automatically via Git hooks:
 
-| Hook           | What runs                                               | Purpose                                            |
-| -------------- | ------------------------------------------------------- | -------------------------------------------------- |
-| **pre-commit** | `lint-staged` (ESLint + Prettier on staged `.ts` files) | Ensures all committed code is linted and formatted |
-| **pre-push**   | `yarn test`                                             | Ensures all tests pass before code is pushed       |
+| Hook           | What runs                                               | Purpose                                                           |
+| -------------- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| **pre-commit** | `lint-staged` (ESLint + Prettier on staged `.ts` files) | Ensures all committed code is linted and formatted                |
+| **pre-push**   | `yarn test` & `yarn test:int`                           | Ensures all unit and integration tests pass before code is pushed |
 
 #### How it works
 
@@ -99,7 +143,7 @@ The project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](ht
 2. Husky sets Git's `core.hooksPath` to the `.husky/` directory
 3. When you `git commit`, Git executes `.husky/pre-commit` → runs `lint-staged`
    - `lint-staged` runs ESLint and Prettier **only on staged files**, and automatically re-stages any fixes
-4. When you `git push`, Git executes `.husky/pre-push` → runs `yarn test`
+4. When you `git push`, Git executes `.husky/pre-push` → runs `yarn test` and `yarn test:int`
    - If any test fails, the push is **blocked**
 
 > **Note:** If you need to bypass hooks in an emergency, you can use `git commit --no-verify` or `git push --no-verify`, but this is discouraged.
@@ -156,7 +200,43 @@ Available from **Terminal → Run Task** (`⌘⇧P` → `Tasks: Run Task`):
 | `yarn test`        | `jest`                       | Run unit tests          |
 | `yarn test:watch`  | `jest --watch`               | Run tests in watch mode |
 | `yarn test:cov`    | `jest --coverage`            | Run tests with coverage |
-| `yarn test:e2e`    | `jest (e2e config)`          | Run end-to-end tests    |
+| `yarn test:int`    | `jest (int config)`          | Run integration tests   |
+
+## Testing Strategy
+
+The application uses two levels of automated testing:
+
+### 1. Unit Tests
+
+Unit tests check specific parts of the code in isolation, like classes, functions, handlers, and Domain Aggregates.
+
+- **Organization:** Unit test files are located next to the files they test. They end with the `.spec.ts` suffix (for example, `create-order.handler.spec.ts`).
+- **Tools:** We use **Jest** to run tests and make assertions. We use Jest to mock dependencies like repositories or external services. We test Command and Query handlers in isolation, without starting the whole NestJS application.
+- **Command:** `yarn test`
+
+### 2. Integration Tests
+
+Integration tests make sure that different modules, controllers, dependencies, and the database work correctly together.
+
+- **Organization:** These tests are inside the `test/` directory at the root level. They end with the `.int-spec.ts` suffix (for example, `orders.int-spec.ts`).
+- **Tools:** We use **Jest**, **Supertest** (for HTTP requests), and the **NestJS Testing Module**. These tests start a local NestJS application instance that connects to the development MongoDB Replica Set. This lets us test the full HTTP request process, global pipes (like ValidationPipe), and real database transactions.
+- **Why Integration and not E2E?** These are Integration Tests, not true End-to-End (E2E) tests. This is because they start the application directly from code and use a shared developer database. True E2E tests would test the app from the outside and use a completely fresh, isolated database for every run (for example, using Testcontainers).
+- **Command:** `yarn test:int`
+
+## Module Architecture (CQRS)
+
+This application uses the **Command Query Responsibility Segregation (CQRS)** pattern. Each feature (like Inventory or Orders) has its own NestJS Module. A typical module includes the following parts:
+
+1. **Controllers:** They handle HTTP endpoints (for example, `orders.controller.ts`). They are very small. Their only job is to receive the HTTP request and send a Command or a Query to the correct bus.
+2. **Commands & Queries (`commands/`, `queries/`):**
+   - They define the data structure for an action (for example, `impl/create-order.command.ts`).
+   - **Handlers** (`handlers/create-order.handler.ts`) contain the main business logic. They validate data and interact with repositories and other services.
+3. **Events (`events/`):**
+   - Aggregate Roots (like `Order`) create domain events (`impl/order-created.event.ts`) when their internal state changes successfully.
+   - **Event Handlers** (`handlers/order-events.handler.ts`) listen to these events. They perform background tasks like logging, sending emails, or connecting to other modules.
+4. **Models & Domain (`models/`):** This folder contains Mongoose Schemas (`order.schema.ts`) and CQRS Aggregate Roots (`order.aggregate.ts`). Aggregates hold validation rules and logic to change the state safely.
+5. **Repositories (`repositories/`):** They handle saving data. They use interfaces (`order-repository.interface.ts`) to separate the business logic from the database logic (`impl/mongo-order.repository.ts`).
+6. **Module Definition (`*.module.ts`):** The main file that connects everything. It registers all Controllers, Services, Repositories, and lists of `CommandHandlers`, `QueryHandlers`, and `EventHandlers`.
 
 ## Security (Helmet & CORS)
 
@@ -219,12 +299,7 @@ export class AppConfigService {
       { key: 'API_KEY', value: this.apiKey, sensitive: true },
     ];
 
-    return Object.fromEntries(
-      entries.map(({ key, value, sensitive }) => [
-        key,
-        sensitive ? this.obfuscate(String(value)) : value,
-      ]),
-    );
+    return Object.fromEntries(entries.map(({ key, value, sensitive }) => [key, sensitive ? this.obfuscate(String(value)) : value]));
   }
 }
 ```
