@@ -19,6 +19,12 @@ A backend application for an Inventory Management System, utilizing CQRS and Mon
    _Note:_ MongoDB requires a Replica Set for transactions to work. We set up a 1-node replica set in Docker to support transactions locally.
    **Cloud Availability:** This setup works perfectly with managed cloud databases (MongoDB Atlas, AWS DocumentDB, Azure Cosmos DB), as they all support these transactions out of the box.
 
+## ADR: Unit of Work (UoW) Pattern
+
+**Context:** Although MongoDB provides transactions, managing `ClientSession` objects directly inside Command Handlers tightly couples our business logic to the database technology.
+**Decision:** We implemented the **Unit of Work (UoW)** pattern to abstract database transactions. Command Handlers execute their operations inside a `withTransaction` block provided by an injected `IUnitOfWork`, keeping infrastructure details hidden.
+**Justification:** This decouples our application core from MongoDB specifics. It allows us to orchestrate multi-aggregate changes (e.g., deducting stock and creating an order) cleanly and improves the testability of our handlers.
+
 ## ADR: Floating Point Precision for Money
 
 **Context:** Prices and money require exact calculations (for example, applying percentage discounts or region multipliers). JavaScript uses floating-point numbers by default. This means that a simple calculation like `0.1 + 0.2` gives `0.30000000000000004` instead of exactly `0.3`. If we do not fix this, our financial calculations will be wrong.
@@ -234,8 +240,11 @@ This application uses the **Command Query Responsibility Segregation (CQRS)** pa
 3. **Events (`events/`):**
    - Aggregate Roots (like `Order`) create domain events (`impl/order-created.event.ts`) when their internal state changes successfully.
    - **Event Handlers** (`handlers/order-events.handler.ts`) listen to these events. They perform background tasks like logging, sending emails, or connecting to other modules.
-4. **Models & Domain (`models/`):** This folder contains Mongoose Schemas (`order.schema.ts`) and CQRS Aggregate Roots (`order.aggregate.ts`). Aggregates hold validation rules and logic to change the state safely.
-5. **Repositories (`repositories/`):** They handle saving data. They use interfaces (`order-repository.interface.ts`) to separate the business logic from the database logic (`impl/mongo-order.repository.ts`).
+4. **Models & Domain (`models/`):** This folder contains Mongoose Schemas (`order.schema.ts`) and CQRS Aggregate Roots (`order.aggregate.ts`). Aggregates hold validation rules and logic to change the state safely. They throw specific **Domain Exceptions** (extending a common architectural base class) to reliably indicate business rule violations without HTTP-specific logic.
+5. **Repositories (`repositories/`):** They handle data access. To strictly enforce CQRS, we separate read and write concerns:
+   - **Write Repositories:** Handle creating, updating, and deleting domain aggregates.
+   - **Read Repositories:** Handle queries and return read-models (DTOs), optimized for fast reads.
+     Both use abstract interfaces (for example, `order-repository.interface.ts` or `order-read-repository.interface.ts`) to decouple the business logic from underlying database technology (like `impl/mongo-order.repository.ts`).
 6. **Module Definition (`*.module.ts`):** The main file that connects everything. It registers all Controllers, Services, Repositories, and lists of `CommandHandlers`, `QueryHandlers`, and `EventHandlers`.
 
 ## Security (Helmet & CORS)
