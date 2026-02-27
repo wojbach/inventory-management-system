@@ -1,103 +1,96 @@
-import { Inject, ConflictException } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { CommandHandler, EventPublisher, ICommandHandler } from '@nestjs/cqrs';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection, ClientSession } from 'mongoose';
-import * as crypto from 'crypto';
 import { CreateOrderCommand } from '../impl/create-order.command';
 import { CONSUMER_REPOSITORY_TOKEN, IConsumerRepository } from '../../../consumers/repositories/consumer-repository.interface';
 import { ConsumerNotFoundException } from '../../../common/exceptions/consumer-not-found.exception';
-import { PRODUCT_REPOSITORY_TOKEN, IProductRepository } from '../../../inventory/repositories/product-repository.interface';
 import { ORDER_REPOSITORY_TOKEN, IOrderRepository } from '../../repositories/order-repository.interface';
 import { PricingService } from '../../services/pricing.service';
-import { InsufficientStockException } from '../../../common/exceptions/insufficient-stock.exception';
-import { Product } from '../../../inventory/models/product.aggregate';
+import { PricingItem, PricingResult } from '../../services/pricing.types';
+import { IUnitOfWork, UNIT_OF_WORK_TOKEN } from '../../../database/unit-of-work.interface';
+import { InventoryFacade, ProductSnapshot } from '../../../inventory/inventory.facade';
+import { Order } from '../../models/order.aggregate';
+import { Money } from '../../models/value-objects/money.value-object';
+import { OrderItem } from '../../models/value-objects/order-item.value-object';
+import * as crypto from 'crypto';
 
 @CommandHandler(CreateOrderCommand)
 export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
   constructor(
-    @Inject(PRODUCT_REPOSITORY_TOKEN)
-    private readonly productRepository: IProductRepository<ClientSession>,
     @Inject(ORDER_REPOSITORY_TOKEN)
-    private readonly orderRepository: IOrderRepository<ClientSession>,
+    private readonly orderRepository: IOrderRepository,
     @Inject(CONSUMER_REPOSITORY_TOKEN)
     private readonly consumerRepository: IConsumerRepository,
+    @Inject(UNIT_OF_WORK_TOKEN)
+    private readonly uow: IUnitOfWork,
     private readonly pricingService: PricingService,
     private readonly publisher: EventPublisher,
-    @InjectConnection() private readonly connection: Connection,
+    private readonly inventoryFacade: InventoryFacade,
   ) {}
 
   async execute(command: CreateOrderCommand): Promise<string> {
     const { customerId, items } = command;
+    const orderId = crypto.randomUUID();
 
+    const consumerLocation = await this.validateCustomerLocation(customerId);
+
+    return this.uow.withTransaction(async () => {
+      const snapshots = await this.getProductSnapshots(items);
+
+      const pricingItems: PricingItem[] = snapshots.map(({ snapshot, quantity }) => ({
+        productId: snapshot.id,
+        price: snapshot.price,
+        quantity,
+        category: snapshot.category,
+      }));
+
+      const pricingDetails: PricingResult = this.pricingService.calculate(pricingItems, consumerLocation);
+
+      await this.deductStockForAll(items);
+
+      // Create Value Objects for OrderItems
+      const orderItems = pricingItems.map((pi) => OrderItem.create(pi.productId, pi.quantity, Money.create(pi.price)));
+
+      const orderAggregate = this.publisher.mergeObjectContext(
+        Order.create(
+          orderId,
+          customerId,
+          orderItems,
+          Money.create(pricingDetails.total),
+          Money.create(pricingDetails.originalTotal),
+          Money.create(pricingDetails.regionalAdjustment),
+          Money.create(pricingDetails.taxAmount),
+          pricingDetails.taxRate,
+          pricingDetails.discountApplied,
+        ),
+      );
+
+      await this.orderRepository.create(orderAggregate);
+      orderAggregate.commit();
+
+      return orderId;
+    });
+  }
+
+  private async validateCustomerLocation(customerId: string) {
     const consumer = await this.consumerRepository.findById(customerId);
     if (!consumer) {
       throw new ConsumerNotFoundException(customerId);
     }
-    const customerLocation = consumer.location;
+    return consumer.location;
+  }
 
-    const session = await this.connection.startSession();
-    session.startTransaction();
+  private async getProductSnapshots(items: { productId: string; quantity: number }[]) {
+    const snapshots: { snapshot: ProductSnapshot; quantity: number }[] = [];
+    for (const item of items) {
+      const snapshot = await this.inventoryFacade.getProductSnapshot(item.productId);
+      snapshots.push({ snapshot, quantity: item.quantity });
+    }
+    return snapshots;
+  }
 
-    try {
-      const productsToSell: { product: Product; quantity: number }[] = [];
-
-      for (const item of items) {
-        const product = await this.productRepository.findById(item.productId);
-        if (product.stock < item.quantity) {
-          throw new InsufficientStockException(item.productId, product.stock, item.quantity);
-        }
-        productsToSell.push({ product, quantity: item.quantity });
-      }
-
-      const pricingItems = productsToSell.map(({ product, quantity }) => ({
-        productId: product.id,
-        price: product.price,
-        quantity,
-        category: product.category,
-      }));
-
-      const { total, originalTotal, regionalAdjustment, taxAmount, taxRate, discountApplied } = this.pricingService.calculate(
-        pricingItems,
-        customerLocation,
-      );
-
-      for (const { product, quantity } of productsToSell) {
-        product.sell(quantity);
-        await this.productRepository.updateStock(product.id, -quantity, session);
-      }
-
-      const orderId = crypto.randomUUID();
-      const orderAggregate = await this.orderRepository.create(
-        orderId,
-        customerId,
-        pricingItems,
-        total,
-        originalTotal,
-        regionalAdjustment,
-        taxAmount,
-        taxRate,
-        discountApplied,
-        session,
-      );
-
-      const mergedOrder = this.publisher.mergeObjectContext(orderAggregate);
-
-      await session.commitTransaction();
-
-      for (const { product } of productsToSell) {
-        this.publisher.mergeObjectContext(product).commit();
-      }
-      mergedOrder.commit(); // Ensure OrderCreatedEvent fires
-
-      return orderId;
-    } catch (error) {
-      await session.abortTransaction();
-      if (error?.code === 112 || error?.hasErrorLabel?.('TransientTransactionError')) {
-        throw new ConflictException('Concurrent order update detected, please try again.');
-      }
-      throw error;
-    } finally {
-      session.endSession();
+  private async deductStockForAll(items: { productId: string; quantity: number }[]) {
+    for (const { productId, quantity } of items) {
+      await this.inventoryFacade.deductStock(productId, quantity);
     }
   }
 }

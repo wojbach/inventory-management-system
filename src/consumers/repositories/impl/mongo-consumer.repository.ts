@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConsumerDocument } from './consumer.schema';
-import { IConsumerRepository, ConsumerDto } from '../consumer-repository.interface';
+import { IConsumerRepository, IConsumerSeedRepository, ConsumerDto } from '../consumer-repository.interface';
 import { PaginatedResponse } from '../../../common/dto/paginated-response.dto';
 
 @Injectable()
-export class MongoConsumerRepository implements IConsumerRepository {
+export class MongoConsumerRepository implements IConsumerRepository, IConsumerSeedRepository {
   constructor(
     @InjectModel(ConsumerDocument.name)
     private readonly model: Model<ConsumerDocument>,

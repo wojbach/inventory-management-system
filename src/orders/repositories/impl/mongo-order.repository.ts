@@ -1,97 +1,42 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, ClientSession } from 'mongoose';
+import { Model } from 'mongoose';
 import { OrderDocument } from './order.schema';
 import { Order } from '../../models/order.aggregate';
-import { IOrderRepository, OrderItemInput } from '../order-repository.interface';
-import { OrderResponseDto } from '../../dto/order-response.dto';
-import { PaginatedResponse } from '../../../common/dto/paginated-response.dto';
+import { IOrderRepository } from '../order-repository.interface';
+import { UNIT_OF_WORK_TOKEN, IUnitOfWork } from '../../../database/unit-of-work.interface';
 
 @Injectable()
-export class MongoOrderRepository implements IOrderRepository<ClientSession> {
+export class MongoOrderRepository implements IOrderRepository {
   constructor(
     @InjectModel(OrderDocument.name)
     private readonly model: Model<OrderDocument>,
+    @Inject(UNIT_OF_WORK_TOKEN)
+    private readonly uow: IUnitOfWork,
   ) {}
 
-  async findAll(page: number, limit: number): Promise<PaginatedResponse<OrderResponseDto>> {
-    const skip = (page - 1) * limit;
+  async create(order: Order): Promise<void> {
+    const session = this.uow.getSession();
 
-    const [docs, total] = await Promise.all([
-      this.model.find().skip(skip).limit(limit).populate('items.productId').lean().exec(),
-      this.model.countDocuments().exec(),
-    ]);
-
-    const data: OrderResponseDto[] = docs.map((doc) => {
-      const orderDoc = doc as Omit<OrderDocument, 'items'> & {
-        items: {
-          productId: { _id: import('mongoose').Types.ObjectId | string; name: string } | string;
-          quantity: number;
-          price: number;
-        }[];
-      };
-
-      return OrderResponseDto.create({
-        id: orderDoc._id.toString(),
-        customerId: orderDoc.customerId,
-        items: orderDoc.items.map((i) => {
-          const p = i.productId;
-          const isPopulated = p && typeof p === 'object' && '_id' in p;
-
-          return {
-            productId: isPopulated ? p._id.toString() : (p as string),
-            productName: isPopulated ? p.name : undefined,
-            quantity: i.quantity,
-            price: i.price,
-          };
-        }),
-        total: orderDoc.total,
-        originalTotal: orderDoc.originalTotal,
-        regionalAdjustment: orderDoc.regionalAdjustment,
-        taxAmount: orderDoc.taxAmount,
-        taxRate: orderDoc.taxRate,
-        discountApplied: orderDoc.discountApplied,
-        createdAt: orderDoc.createdAt?.toISOString(),
-        updatedAt: orderDoc.updatedAt?.toISOString(),
-      });
-    });
-
-    return { data, total, page, limit };
-  }
-
-  async create(
-    orderId: string,
-    customerId: string,
-    items: OrderItemInput[],
-    total: number,
-    originalTotal: number,
-    regionalAdjustment: number,
-    taxAmount: number,
-    taxRate: number,
-    discountApplied: string,
-    transaction?: ClientSession,
-  ): Promise<Order> {
     await this.model.create(
       [
         {
-          _id: orderId,
-          customerId,
-          items: items.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            price: i.price,
+          _id: order.getId(),
+          customerId: order.getCustomerId(),
+          items: order.getItems().map((i) => ({
+            productId: i.getProductId(),
+            quantity: i.getQuantity(),
+            price: i.getPrice().getAmount(),
           })),
-          total,
-          originalTotal,
-          regionalAdjustment,
-          taxAmount,
-          taxRate,
-          discountApplied,
+          total: order.getTotal().getAmount(),
+          originalTotal: order.getOriginalTotal().getAmount(),
+          regionalAdjustment: order.getRegionalAdjustment().getAmount(),
+          taxAmount: order.getTaxAmount().getAmount(),
+          taxRate: order.getTaxRate(),
+          discountApplied: order.getDiscountApplied(),
         },
       ],
-      { session: transaction },
+      { session },
     );
-
-    return new Order(orderId, customerId, items, total, originalTotal, regionalAdjustment, taxAmount, taxRate, discountApplied);
   }
 }

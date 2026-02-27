@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
-import { CustomerLocation } from '../../../orders/enums/customer-location.enum';
+import { CustomerLocation } from '../../../common/enums/customer-location.enum';
 
 @Schema({ timestamps: true })
 export class ConsumerDocument extends Document<string> {

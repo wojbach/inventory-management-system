@@ -1,5 +1,2 @@
-export enum CustomerLocation {
-  US = 'US',
-  EUROPE = 'Europe',
-  ASIA = 'Asia',
-}
+// Re-export from common for backwards compatibility
+export { CustomerLocation } from '../../common/enums/customer-location.enum';

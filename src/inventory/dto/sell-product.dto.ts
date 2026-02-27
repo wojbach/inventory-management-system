@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsPositive } from 'class-validator';
+import { IsInt, IsPositive } from 'class-validator';
 
 export class SellProductDto {
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   amount: number;
 }

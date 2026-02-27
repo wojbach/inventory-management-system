@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../database/database.module';
 import { CqrsModule } from '@nestjs/cqrs';
 import { MongooseModule } from '@nestjs/mongoose';
 import { OrdersController } from './orders.controller';
@@ -6,6 +7,8 @@ import { PricingService } from './services/pricing.service';
 import { OrderDocument, OrderSchema } from './repositories/impl/order.schema';
 import { ORDER_REPOSITORY_TOKEN } from './repositories/order-repository.interface';
 import { MongoOrderRepository } from './repositories/impl/mongo-order.repository';
+import { ORDER_READ_REPOSITORY_TOKEN } from './repositories/order-read-repository.interface';
+import { MongoOrderReadRepository } from './repositories/impl/mongo-order-read.repository';
 import { CreateOrderHandler } from './commands/handlers/create-order.handler';
 import { GetOrdersHandler } from './queries/handlers/get-orders.handler';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -21,7 +24,13 @@ const QueryHandlers = [GetOrdersHandler];
 const EventHandlers = [OrderEventsHandler];
 
 @Module({
-  imports: [CqrsModule, InventoryModule, ConsumersModule, MongooseModule.forFeature([{ name: OrderDocument.name, schema: OrderSchema }])],
+  imports: [
+    CqrsModule,
+    DatabaseModule,
+    InventoryModule,
+    ConsumersModule,
+    MongooseModule.forFeature([{ name: OrderDocument.name, schema: OrderSchema }]),
+  ],
   controllers: [OrdersController],
   providers: [
     VolumeDiscountStrategy,
@@ -40,6 +49,10 @@ const EventHandlers = [OrderEventsHandler];
     {
       provide: ORDER_REPOSITORY_TOKEN,
       useClass: MongoOrderRepository,
+    },
+    {
+      provide: ORDER_READ_REPOSITORY_TOKEN,
+      useClass: MongoOrderReadRepository,
     },
     ...CommandHandlers,
     ...QueryHandlers,

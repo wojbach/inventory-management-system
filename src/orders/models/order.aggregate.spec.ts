@@ -1,13 +1,16 @@
 import { Order } from './order.aggregate';
+import { Money } from './value-objects/money.value-object';
+import { OrderItem } from './value-objects/order-item.value-object';
+import { OrderMustContainAtLeastOneItemException, InvalidMoneyAmountException } from '../exceptions/order-domain.exceptions';
 
 describe('Order Aggregate', () => {
   const defaultId = 'order-123';
   const defaultCustomerId = 'customer-456';
-  const defaultItems = [{ productId: 'prod-789', quantity: 2, price: 50 }];
-  const defaultTotal = 100;
-  const defaultOriginalTotal = 100;
-  const defaultRegionalAdjustment = 0;
-  const defaultTaxAmount = 0;
+  const defaultItems = [OrderItem.create('prod-789', 2, Money.create(50))];
+  const defaultTotal = Money.create(100);
+  const defaultOriginalTotal = Money.create(100);
+  const defaultRegionalAdjustment = Money.create(0);
+  const defaultTaxAmount = Money.create(0);
   const defaultTaxRate = 0;
   const defaultDiscountApplied = 'None';
 
@@ -25,12 +28,13 @@ describe('Order Aggregate', () => {
         defaultDiscountApplied,
       );
 
-      // Verify fields
-      expect(order.id).toBe(defaultId);
-      expect(order.customerId).toBe(defaultCustomerId);
-      expect(order.items).toEqual(defaultItems);
-      expect(order.total).toBe(defaultTotal);
-      expect(order.originalTotal).toBe(defaultOriginalTotal);
+      // Verify fields via getters (encapsulation enforced)
+      expect(order.getId()).toBe(defaultId);
+      expect(order.getCustomerId()).toBe(defaultCustomerId);
+      expect(order.getItems()).toHaveLength(1);
+      expect(order.getItems()[0].getProductId()).toBe('prod-789');
+      expect(order.getTotal().getAmount()).toBe(100);
+      expect(order.getOriginalTotal().getAmount()).toBe(100);
 
       // Verify events are pushed
       const uncommittedEvents = order.getUncommittedEvents();
@@ -38,39 +42,39 @@ describe('Order Aggregate', () => {
       expect(uncommittedEvents[0].constructor.name).toBe('OrderCreatedEvent');
     });
 
-    it('should throw Error if total is negative', () => {
+    it('should throw InvalidMoneyAmountException if total is negative', () => {
       expect(() => {
         Order.create(
           defaultId,
           defaultCustomerId,
           defaultItems,
-          -10, // Invalid total
+          Money.create(-10), // Invalid total — Money guards this
           defaultOriginalTotal,
           defaultRegionalAdjustment,
           defaultTaxAmount,
           defaultTaxRate,
           defaultDiscountApplied,
         );
-      }).toThrow('Order total cannot be negative');
+      }).toThrow(InvalidMoneyAmountException);
     });
 
-    it('should throw Error if originalTotal is negative', () => {
+    it('should throw InvalidMoneyAmountException if originalTotal is negative', () => {
       expect(() => {
         Order.create(
           defaultId,
           defaultCustomerId,
           defaultItems,
           defaultTotal,
-          -20, // Invalid original total
+          Money.create(-20), // Invalid original total — Money guards this
           defaultRegionalAdjustment,
           defaultTaxAmount,
           defaultTaxRate,
           defaultDiscountApplied,
         );
-      }).toThrow('Order original total cannot be negative');
+      }).toThrow(InvalidMoneyAmountException);
     });
 
-    it('should throw Error if items array is empty', () => {
+    it('should throw OrderMustContainAtLeastOneItemException if items array is empty', () => {
       expect(() => {
         Order.create(
           defaultId,
@@ -83,7 +87,7 @@ describe('Order Aggregate', () => {
           defaultTaxRate,
           defaultDiscountApplied,
         );
-      }).toThrow('Order must contain at least one item');
+      }).toThrow(OrderMustContainAtLeastOneItemException);
     });
   });
 });

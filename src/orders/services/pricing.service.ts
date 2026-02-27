@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CustomerLocation } from '../enums/customer-location.enum';
 import { ProductCategory } from '../../inventory/enums/product-category.enum';
 import { IDiscountStrategy, DISCOUNT_STRATEGIES_TOKEN, PricingContext } from './strategies/discount-strategy.interface';
+import { PricingResult } from './pricing.types';
 import Big from 'big.js';
 
 @Injectable()
@@ -11,7 +12,11 @@ export class PricingService {
     private readonly strategies: IDiscountStrategy[],
   ) {}
 
-  calculate(items: { price: number; quantity: number; category: ProductCategory }[], location: CustomerLocation, date: Date = new Date()) {
+  calculate(
+    items: { price: number; quantity: number; category: ProductCategory }[],
+    location: CustomerLocation,
+    date: Date = new Date(),
+  ): PricingResult {
     const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
     const baseTotal = items.reduce((sum, i) => sum.plus(new Big(i.price).times(i.quantity)), new Big(0));
 
@@ -21,7 +26,7 @@ export class PricingService {
 
     const ctx: PricingContext = {
       items,
-      adjustedTotal,
+      adjustedTotal: Number(adjustedTotal),
       totalQuantity,
       dateKey,
     };
@@ -30,13 +35,12 @@ export class PricingService {
       .map((strategy) => strategy.calculate(ctx))
       .reduce((best, current) => (current.savings > best.savings ? current : best), { savings: 0, label: 'none' });
 
-    const adjustedTotalValue = new Big(adjustedTotal);
-    const finalBeforeTax = adjustedTotalValue.minus(best.savings);
+    const finalBeforeTax = adjustedTotal.minus(best.savings);
     const { taxAmount, taxRate } = this.calculateVat(finalBeforeTax, location);
-    const finalTotal = this.formatPrice(finalBeforeTax.plus(taxAmount));
+    const finalTotal = finalBeforeTax.plus(taxAmount);
 
     return {
-      total: finalTotal,
+      total: this.formatPrice(finalTotal),
       originalTotal: this.formatPrice(baseTotal),
       regionalAdjustment: this.formatPrice(regionalAdjustment),
       taxAmount: this.formatPrice(taxAmount),
@@ -45,7 +49,7 @@ export class PricingService {
     };
   }
 
-  private applyLocationAdjustment(baseTotal: Big, location: CustomerLocation): { adjustedTotal: number; regionalAdjustment: number } {
+  private applyLocationAdjustment(baseTotal: Big, location: CustomerLocation): { adjustedTotal: Big; regionalAdjustment: Big } {
     const locationMultiplier = {
       [CustomerLocation.US]: 1,
       [CustomerLocation.EUROPE]: 1, // VAT is handled separately by taxAmount
@@ -56,8 +60,8 @@ export class PricingService {
     const regionalAdjustment = adjustedTotal.minus(baseTotal);
 
     return {
-      adjustedTotal: this.formatPrice(adjustedTotal),
-      regionalAdjustment: this.formatPrice(regionalAdjustment),
+      adjustedTotal,
+      regionalAdjustment,
     };
   }
 

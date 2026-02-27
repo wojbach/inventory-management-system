@@ -3,7 +3,7 @@ import { RestockProductHandler } from './restock-product.handler';
 import { EventPublisher } from '@nestjs/cqrs';
 import { PRODUCT_REPOSITORY_TOKEN } from '../../repositories/product-repository.interface';
 import { RestockProductCommand } from '../impl/restock-product.command';
-import { getConnectionToken } from '@nestjs/mongoose';
+import { UNIT_OF_WORK_TOKEN } from '../../../database/unit-of-work.interface';
 
 describe('RestockProductHandler', () => {
   let handler: RestockProductHandler;
@@ -11,6 +11,7 @@ describe('RestockProductHandler', () => {
   const mockProduct = {
     id: '123',
     stock: 5,
+    getId: jest.fn().mockReturnValue('123'),
     restock: jest.fn(),
     commit: jest.fn(),
   };
@@ -24,15 +25,10 @@ describe('RestockProductHandler', () => {
     mergeObjectContext: jest.fn().mockReturnValue(mockProduct),
   };
 
-  const mockSession = {
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn(),
-    abortTransaction: jest.fn(),
-    endSession: jest.fn(),
-  };
-
-  const mockConnection = {
-    startSession: jest.fn().mockResolvedValue(mockSession),
+  const mockUnitOfWork = {
+    withTransaction: jest.fn().mockImplementation(async (work: () => Promise<void>) => {
+      return await work();
+    }),
   };
 
   beforeEach(async () => {
@@ -48,8 +44,8 @@ describe('RestockProductHandler', () => {
           useValue: mockEventPublisher,
         },
         {
-          provide: getConnectionToken(),
-          useValue: mockConnection,
+          provide: UNIT_OF_WORK_TOKEN,
+          useValue: mockUnitOfWork,
         },
       ],
     }).compile();
@@ -66,18 +62,14 @@ describe('RestockProductHandler', () => {
 
     await handler.execute(command);
 
-    expect(mockConnection.startSession).toHaveBeenCalled();
-    expect(mockSession.startTransaction).toHaveBeenCalled();
-
+    expect(mockUnitOfWork.withTransaction).toHaveBeenCalled();
     expect(mockProductRepository.findById).toHaveBeenCalledWith('123');
     expect(mockEventPublisher.mergeObjectContext).toHaveBeenCalledWith(mockProduct);
 
     expect(mockProduct.restock).toHaveBeenCalledWith(10);
-    expect(mockProductRepository.updateStock).toHaveBeenCalledWith(mockProduct.id, 10, mockSession);
+    expect(mockProductRepository.updateStock).toHaveBeenCalledWith('123', 10);
 
-    expect(mockSession.commitTransaction).toHaveBeenCalled();
     expect(mockProduct.commit).toHaveBeenCalled();
-    expect(mockSession.endSession).toHaveBeenCalled();
   });
 
   it('should abort transaction on error', async () => {
@@ -88,10 +80,6 @@ describe('RestockProductHandler', () => {
     });
 
     await expect(handler.execute(command)).rejects.toThrow(error);
-
-    expect(mockSession.abortTransaction).toHaveBeenCalled();
-    expect(mockSession.endSession).toHaveBeenCalled();
-    expect(mockSession.commitTransaction).not.toHaveBeenCalled();
     expect(mockProduct.commit).not.toHaveBeenCalled();
   });
 });

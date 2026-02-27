@@ -3,6 +3,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CommonModule } from '../common/common.module';
 import { AppConfigService } from '../common/config/app-config.service';
 import { DatabaseService } from './database.service';
+import { MongoUnitOfWork } from './mongo-unit-of-work';
+import { UNIT_OF_WORK_TOKEN } from './unit-of-work.interface';
 
 @Module({
   imports: [
@@ -16,7 +18,13 @@ import { DatabaseService } from './database.service';
       }),
     }),
   ],
-  providers: [DatabaseService],
-  exports: [MongooseModule],
+  providers: [
+    DatabaseService,
+    {
+      provide: UNIT_OF_WORK_TOKEN,
+      useClass: MongoUnitOfWork,
+    },
+  ],
+  exports: [MongooseModule, UNIT_OF_WORK_TOKEN],
 })
 export class DatabaseModule {}

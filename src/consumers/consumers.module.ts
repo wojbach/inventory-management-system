@@ -1,13 +1,13 @@
-import { Module, OnApplicationBootstrap, Inject } from '@nestjs/common';
+import { Module, OnApplicationBootstrap, Inject, Logger } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { MongooseModule } from '@nestjs/mongoose';
 import * as crypto from 'crypto';
 import { ConsumersController } from './consumers.controller';
 import { ConsumerDocument, ConsumerSchema } from './repositories/impl/consumer.schema';
 import { MongoConsumerRepository } from './repositories/impl/mongo-consumer.repository';
-import { CONSUMER_REPOSITORY_TOKEN, IConsumerRepository } from './repositories/consumer-repository.interface';
+import { CONSUMER_REPOSITORY_TOKEN, CONSUMER_SEED_REPOSITORY_TOKEN, IConsumerSeedRepository } from './repositories/consumer-repository.interface';
 import { GetConsumersHandler } from './queries/handlers/get-consumers.handler';
-import { CustomerLocation } from '../orders/enums/customer-location.enum';
+import { CustomerLocation } from '../common/enums/customer-location.enum';
 
 const CommandHandlers = [];
 const QueryHandlers = [GetConsumersHandler];
@@ -17,9 +17,14 @@ const EventHandlers = [];
   imports: [CqrsModule, MongooseModule.forFeature([{ name: ConsumerDocument.name, schema: ConsumerSchema }])],
   controllers: [ConsumersController],
   providers: [
+    MongoConsumerRepository,
     {
       provide: CONSUMER_REPOSITORY_TOKEN,
-      useClass: MongoConsumerRepository,
+      useExisting: MongoConsumerRepository,
+    },
+    {
+      provide: CONSUMER_SEED_REPOSITORY_TOKEN,
+      useExisting: MongoConsumerRepository,
     },
     ...CommandHandlers,
     ...QueryHandlers,
@@ -28,16 +33,18 @@ const EventHandlers = [];
   exports: [CONSUMER_REPOSITORY_TOKEN],
 })
 export class ConsumersModule implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ConsumersModule.name);
+
   constructor(
-    @Inject(CONSUMER_REPOSITORY_TOKEN)
-    private readonly consumerRepository: IConsumerRepository,
+    @Inject(CONSUMER_SEED_REPOSITORY_TOKEN)
+    private readonly seedRepository: IConsumerSeedRepository,
   ) {}
 
   async onApplicationBootstrap() {
-    const count = await this.consumerRepository.count();
+    const count = await this.seedRepository.count();
     if (count === 0) {
-      console.log('Seeding initial Consumers data...');
-      await this.consumerRepository.seed([
+      this.logger.log('Seeding initial Consumers data...');
+      await this.seedRepository.seed([
         {
           id: crypto.randomUUID(),
           email: 'alice.smith@example.com',
@@ -79,7 +86,7 @@ export class ConsumersModule implements OnApplicationBootstrap {
           address: '10 Rue de Rivoli, Paris, FR',
         },
       ]);
-      console.log('Consumers successfully seeded!');
+      this.logger.log('Consumers successfully seeded!');
     }
   }
 }
